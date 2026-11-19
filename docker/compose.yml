@@ -1,0 +1,35 @@
+# The local trial: Postgres and the plystore service on this machine, reachable from it only (127.0.0.1). The password and token are
+# fixed local values, not secrets; kamino gets its own stack with Swarm secrets. `make up` / `make down`; the data stays in the volume.
+name: plystore
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: plystore
+      POSTGRES_PASSWORD: plystore
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "plystore"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      PLYSTORE_DATABASE_URL: postgresql://plystore:plystore@postgres:5432
+      PLYSTORE_TOKEN: local-token
+    ports:
+      - "127.0.0.1:8100:8100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

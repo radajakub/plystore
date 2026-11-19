@@ -1,4 +1,4 @@
-.PHONY: lint typecheck format check fix test test-postgres check-data up down backup backup-check require-version release release-dry-run
+.PHONY: lint typecheck format check fix test test-postgres check-data demo up down backup backup-check require-version release release-dry-run
 
 # Check lint and formatting
 lint:
@@ -34,6 +34,10 @@ test-postgres:
 # The round trip of every record of a data folder through its format, no database: make check-data DATA=../plydata/plybench
 check-data:
 	uv run plystore-check $(DATA)
+
+# Files and Postgres side by side on one folder of plydata (make up first; scripts/demo.py); DEMO_ARGS=--keep to look around after
+demo:
+	PLYSTORE_DATABASE_URL=$(LOCAL_DATABASE) uv run python scripts/demo.py $(DEMO_ARGS)
 
 # The local Postgres (docker/compose.yml); down keeps the data volume
 up:

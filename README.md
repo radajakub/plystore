@@ -122,5 +122,6 @@ uv sync
 make test           # without Postgres: the Postgres tests are skipped
 make up && make test-postgres
 make check-data DATA=../plydata/plybench
+make demo           # files and Postgres side by side on one plydata folder (DEMO_ARGS=--keep to look around)
 make lint
 ```

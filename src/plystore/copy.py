@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from plystore.keys import LOG, kind
 from plystore.store import Store, encode, encode_record
 
-# Moving documents between backends: the import of plydata's folders into the service is copy(FileStore(plydata/<repo>), service). Nothing in
+# Moving records between backends: the import of plydata's folders into Postgres is copy(FileStore(plydata/<repo>), postgres). Nothing in
 # the target is ever overwritten: a key already there with the same content is skipped, one with other content is a conflict, left as it is;
 # so a copy can run again after a failure, and a log copied in part goes on from where it stopped. Documents move in batches (one read, one
 # write and one read-back per batch); a batch that fails as a whole is done again key by key, so one bad document fails alone.

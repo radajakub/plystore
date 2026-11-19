@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 
+from plystore.check import check
 from plystore.config import open_store
 from plystore.copy import copy, scan
 from plystore.files import FileStore
@@ -46,4 +47,31 @@ def copy_main() -> None:
     for key, problem in list(report.failed.items())[:50]:
         print(f"  failed: {key}: {problem}")
     if report.conflicts or report.failed:
+        raise SystemExit(1)
+
+
+def check_main() -> None:
+    # read only: the round trip of every record of a data folder through its format, without a database
+    parser = argparse.ArgumentParser(description="Check that every record of a data folder rebuilds to itself from its typed rows (no database needed).")
+    parser.add_argument("root", type=Path, help="the data folder, e.g. plydata/plybench")
+    parser.add_argument("--prefix", default="", help="only keys under this prefix")
+    args = parser.parse_args()
+    report = check(FileStore(args.root), args.prefix)
+    print(f"{sum(report.records.values())} records")
+    for name, count in report.records.most_common():
+        whole = f", {report.whole[name]} kept whole (not the format's shape)" if report.whole[name] else ""
+        print(f"  {count:>8}  {name}{whole}")
+    print(f"{len(report.leftovers)} fields with values outside the typed columns (records holding them)")
+    for name, count in report.leftovers.most_common(40):
+        print(f"  {count:>8}  {name}")
+    print("unmapped, by folder and suffix")
+    for name, count in report.unmapped.most_common(20):
+        print(f"  {count:>8}  {name}")
+    print(f"{len(report.differ)} records that do not rebuild to themselves")
+    for key in report.differ[:20]:
+        print(f"  {key}")
+    print(f"{len(report.refused)} records no store would take")
+    for key, problem in list(report.refused.items())[:20]:
+        print(f"  {key}: {problem}")
+    if not report.ok:
         raise SystemExit(1)

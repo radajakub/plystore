@@ -4,11 +4,10 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
-from plystore.games import GameRow
 from plystore.keys import JSON, LOG, kind
 
 # The interface every writer and reader uses. One contract for every backend (tests/test_contract.py): a value a backend accepts, every backend
-# accepts; so what Postgres cannot hold (NaN, infinities, the NUL character) is refused everywhere, and a run never learns it only after a switch.
+# accepts; so what Postgres cannot hold (NaN, infinities, the NUL character, lone surrogates) is refused everywhere, and a run never learns it only after a switch.
 
 
 class Store(Protocol):
@@ -30,11 +29,6 @@ class Store(Protocol):
 
     def exists(self, key: str) -> bool: ...
 
-    def games(self, prefix: str = "") -> list[GameRow]:
-        # the typed columns of every game record under the prefix (games.py), sorted by key: the service reads its games table, the others
-        # compute the same rows from the documents
-        ...
-
     def keys(self, prefix: str = "") -> list[str]:
         # every key under the prefix (by whole parts), sorted
         ...
@@ -52,13 +46,14 @@ class Store(Protocol):
         ...
 
 
-def _has_nul(value: Any) -> bool:
+def _bad_text(value: Any) -> bool:
+    # a str Postgres cannot hold: the NUL character, or a lone surrogate (valid in JSON's \u escapes, not in UTF-8)
     if isinstance(value, str):
-        return "\x00" in value
+        return "\x00" in value or not value.isascii() and any(0xD800 <= ord(char) <= 0xDFFF for char in value)
     if isinstance(value, dict):
-        return any(_has_nul(k) or _has_nul(v) for k, v in value.items())
+        return any(_bad_text(k) or _bad_text(v) for k, v in value.items())
     if isinstance(value, list):
-        return any(_has_nul(item) for item in value)
+        return any(_bad_text(item) for item in value)
     return False
 
 
@@ -76,8 +71,8 @@ def encode(key: str, value: Any) -> str:
         text = value
     else:
         raise ValueError(f"{key} is text: give a str, not {type(value).__name__}")
-    if _has_nul(value):
-        raise ValueError(f"{key}: contains the NUL character, which the database cannot hold")
+    if _bad_text(value):
+        raise ValueError(f"{key}: contains the NUL character or a lone surrogate, which the database cannot hold")
     return text
 
 
@@ -98,8 +93,8 @@ def encode_record(key: str, record: Any) -> str:
         line = json.dumps(record, ensure_ascii=False, allow_nan=False)
     except (TypeError, ValueError) as error:
         raise ValueError(f"{key}: not storable JSON ({error})") from error
-    if _has_nul(record):
-        raise ValueError(f"{key}: contains the NUL character, which the database cannot hold")
+    if _bad_text(record):
+        raise ValueError(f"{key}: contains the NUL character or a lone surrogate, which the database cannot hold")
     return line
 
 

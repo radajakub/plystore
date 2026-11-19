@@ -4,12 +4,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from plystore.games import GameRow
 from plystore.keys import DocumentExists, check, check_prefix, under
 from plystore.store import Store, check_prefix_to_delete
 
-# Many backends behind one Store: each key goes to the route with the longest prefix that holds it (plots/ to files, the rest to the service).
-# A route's also_read stores hold what was written before a switch (plydata's files once runs write to the service): reads fall back to them,
+# Many backends behind one Store: each key goes to the route with the longest prefix that holds it (plots/ to files, the rest to Postgres).
+# A route's also_read stores hold what was written before a switch (plydata's files once runs write to Postgres): reads fall back to them,
 # a write-once key there counts as written, and a log continues after their records. Writes and deletes go to the route's own store only.
 
 
@@ -66,19 +65,6 @@ class RoutedStore:
                     break
                 found.update(store.get_many(missing))
         return {key: found[key] for key in keys if key in found}
-
-    def games(self, prefix: str = "") -> list[GameRow]:
-        check_prefix(prefix)
-        found: dict[str, GameRow] = {}
-        for route in self.routes:
-            if not (under(route.prefix, prefix) or under(prefix, route.prefix)):
-                continue
-            narrower = route.prefix if under(route.prefix, prefix) else prefix
-            for store in (route.store, *route.also_read):
-                for row in store.games(narrower):
-                    if row.key not in found and under(row.key, prefix) and self.route(row.key) is route:
-                        found[row.key] = row
-        return [found[key] for key in sorted(found)]
 
     def exists(self, key: str) -> bool:
         route = self.route(key)

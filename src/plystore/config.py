@@ -2,48 +2,52 @@ from __future__ import annotations
 
 import os
 import tomllib
+from importlib.metadata import entry_points
 from pathlib import Path
+from typing import Any
 
 from plystore.files import FileStore
 from plystore.memory import MemoryStore
 from plystore.routed import Route, RoutedStore
-from plystore.service import ServiceStore
 from plystore.store import Store
 
 # Where a repository's outputs go is configuration only: the file PLYSTORE_CONFIG names (or the one given), read once at start. Without one,
 # every key is a file under the root, as runs write today. A configuration routes key prefixes to backends, e.g.
 #
-#   [service]
-#   url = "http://127.0.0.1:8100"
-#   database = "plybench"
-#   token_env = "PLYSTORE_TOKEN"   # the environment variable holding the token (this one by default)
+#   [postgres]
+#   schema = "plyagents"
+#   url_env = "PLYSTORE_DATABASE_URL"   # the environment variable holding the database URL (this one by default)
 #
 #   [[route]]
 #   prefix = ""
-#   store = "service"
+#   store = "postgres"
 #   also_read = ["files"]
 #
 #   [[route]]
 #   prefix = "plots"
 #   store = "files"
 #
-# Backends: "files" (under the root), "memory", and "service" when the [service] table is there. A route's also_read lists backends to read
-# from where its own has nothing (what was written before a switch), in that order.
+# Backends: "files" (under the root), "memory", and each table naming a backend of the plystore.backends entry point group: "postgres" comes
+# with the plystore[postgres] extra. A route's also_read lists backends to read from where its own has nothing (what was written before a
+# switch), in that order.
 
 ENV = "PLYSTORE_CONFIG"
+GROUP = "plystore.backends"
 
 
 def open_store(root: Path, config: Path | None = None) -> Store:
     path = config if config is not None else Path(os.environ[ENV]) if os.environ.get(ENV) else None
     if path is None:
         return FileStore(root)
-    data = tomllib.loads(path.read_text())
+    data: dict[str, Any] = tomllib.loads(path.read_text())
     backends: dict[str, Store] = {"files": FileStore(root), "memory": MemoryStore()}
-    if service := data.get("service"):
-        token_env = service.get("token_env", "PLYSTORE_TOKEN")
-        if not os.environ.get(token_env):
-            raise ValueError(f"{path}: the service token is read from {token_env}, which is not set")
-        backends["service"] = ServiceStore(service["url"], service["database"], os.environ[token_env])
+    for name, table in data.items():
+        if name == "route":
+            continue
+        found = entry_points(group=GROUP, name=name)
+        if not found:
+            raise ValueError(f"{path}: no backend {name!r} is installed (postgres comes with plystore[postgres])")
+        backends[name] = next(iter(found)).load()(root, table)
 
     def backend(name: str) -> Store:
         if name not in backends:

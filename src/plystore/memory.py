@@ -5,7 +5,6 @@ import threading
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from plystore.games import GAME_NAME, GameRow, rows_from
 from plystore.keys import LOG, DocumentExists, check, check_prefix, kind, under
 from plystore.store import check_log, check_prefix_to_delete, decode, encode, encode_record
 
@@ -41,9 +40,6 @@ class MemoryStore:
 
     def get_many(self, keys: Sequence[str]) -> dict[str, Any]:
         return {key: value for key in keys if (value := self.get(key)) is not None}
-
-    def games(self, prefix: str = "") -> list[GameRow]:
-        return rows_from(self.get_many([key for key in self.keys(prefix) if GAME_NAME.search(key)]))
 
     def exists(self, key: str) -> bool:
         return check(key) in self._documents or key in self._logs

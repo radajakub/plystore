@@ -5,9 +5,10 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from records import DOCUMENTS, LOGS
 
 from plystore import DocumentExists, FileStore, MemoryStore, Route, RoutedStore, Store
-from plystore.service import ServiceStore
+from plystore.mapping import same
 
 # One contract for every backend: a writer cannot tell which one it was given.
 
@@ -19,11 +20,10 @@ BACKENDS: dict[str, Callable[[Path], Store]] = {
 }
 
 
-@pytest.fixture(params=[*BACKENDS, pytest.param("service", marks=pytest.mark.postgres)])
+@pytest.fixture(params=[*BACKENDS, pytest.param("postgres", marks=pytest.mark.postgres)])
 def store(request: pytest.FixtureRequest, tmp_path: Path) -> Store:
-    if request.param == "service":
-        service = request.getfixturevalue("service")
-        return ServiceStore(service.url, "plystore_test", "test-token")
+    if request.param == "postgres":
+        return request.getfixturevalue("postgres")
     return BACKENDS[request.param](tmp_path)
 
 
@@ -144,21 +144,30 @@ def test_get_many_reads_the_documents_that_exist(store: Store) -> None:
         store.get_many(["results/log.jsonl"])
 
 
-def test_every_backend_gives_the_same_game_rows(store: Store) -> None:
-    from plystore.games import GameRow, summarize
+def test_records_of_every_format_read_back_as_written(store: Store) -> None:
+    # equal as JSON with types (1 is not 1.0); a backend may change the order of an object's keys
+    store.put_many(DOCUMENTS)
+    for key, records in LOGS.items():
+        for record in records:
+            store.append(key, record)
+    assert store.keys() == sorted([*DOCUMENTS, *LOGS])
+    assert same(store.get_many(list(DOCUMENTS)), {key: value for key, value in DOCUMENTS.items()})
+    for key, records in LOGS.items():
+        assert same(store.read_log(key), records)
 
-    store.put("results/ttt/a_b/game_1.json", {"game_round": 1, "i_player": "llm:x", "o_player": "mcts:y", "steps": [{}, {}], "ending": {"result": 1}, "seed": 7})
-    store.put("results/ttt/a_b/game_2.json", {"game_round": 2.5, "i_player": "llm:x", "o_player": "mcts:y", "steps": [{}], "ending": {"result": -1}})
-    store.put("results/ttt/a_b/game_3.json", {"game_round": True, "i_player": 5, "steps": [], "ending": None, "seed": 1.5})
-    store.put("results/ttt/a_b/game_4.json", {"steps": []})
-    store.put("results/ttt/a_b/metadata.json", {"game_round": 1, "steps": []})
-    store.put("results/ttt2/c_d/game_1.json", {"game_round": 1, "steps": [], "ending": {"result": 0}})
-    rows = store.games("results/ttt")
-    assert rows == [
-        GameRow("results/ttt/a_b/game_1.json", "results/ttt/a_b", 1, "llm:x", "mcts:y", 1, 2, 7),
-        GameRow("results/ttt/a_b/game_2.json", "results/ttt/a_b", 3, "llm:x", "mcts:y", -1, 1, None),
-        GameRow("results/ttt/a_b/game_3.json", "results/ttt/a_b", None, "5", None, None, 0, 1.5),
-    ]
-    assert len(store.games()) == 4
-    (summary,) = summarize(rows)
-    assert (summary.games, summary.won, summary.drawn, summary.lost, summary.mean_moves) == (3, 1, 0, 1, 1.0)
+
+def test_records_that_do_not_follow_their_format_read_back_as_written(store: Store) -> None:
+    odd = {
+        "results/x/game_1.json": {"game_round": 2.5, "i_player": 5, "steps": [{}, "x"], "ending": None, "seed": 2**70},
+        "results/x/game_2.json": [1, 2],
+        "results/x/game_3.json": "a string",
+        "results/x/metadata.json": {"summary": {"win_rate": {"n": 1.5}}, "completed": [1, None]},
+        "results/training/t/r/epoch_1/checkpoint/state.json": {"actor": {"k": {"red": {}}}, "critic": [1]},
+    }
+    for key, value in odd.items():
+        store.put(key, value)
+    store.append("results/llm_blocks.jsonl", ["not", "an", "object"])
+    store.append("results/llm_blocks.jsonl", {"time": 1})
+    for key, value in odd.items():
+        assert same(store.get(key), value)
+    assert same(store.read_log("results/llm_blocks.jsonl"), [["not", "an", "object"], {"time": 1}])

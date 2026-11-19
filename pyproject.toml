@@ -2,7 +2,7 @@
 name = "plystore"
 # set by `make release VERSION=X.Y.Z`; the first release is 0.1.0
 version = "0.0.0"
-description = "One storage interface for the outputs of ply runs: named documents and logs in memory, in files, or (later) in a database service."
+description = "One storage interface for the outputs of ply runs: records and logs in memory, in files, or in typed PostgreSQL tables."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -16,17 +16,21 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
-# the client has no dependencies: the writers get it without anything else
+# the client has no dependencies: memory, files, routing, the formats and their round trip need nothing else
 dependencies = []
 
 [project.optional-dependencies]
-# the service (plystore-serve, its Docker image); never needed by a writer
-server = ["fastapi>=0.162.1", "uvicorn[standard]>=0.54.0", "psycopg[binary,pool]>=3.2"]
+# the PostgreSQL backend (typed tables, migrations, the admin command); loaded through the plystore.backends entry point
+postgres = ["sqlalchemy>=2.0.40", "psycopg[binary]>=3.2", "alembic>=1.15"]
 
 [project.scripts]
 plystore-scan = "plystore.cli:scan_main"
 plystore-copy = "plystore.cli:copy_main"
-plystore-serve = "plystore.server.app:main"
+plystore-check = "plystore.cli:check_main"
+plystore-admin = "plystore.postgres.admin:main"
+
+[project.entry-points."plystore.backends"]
+postgres = "plystore.postgres.store:from_config"
 
 [build-system]
 requires = ["hatchling"]
@@ -60,5 +64,5 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.16.0",
     "pyright>=1.1.414",
-    "plystore[server]",
+    "plystore[postgres]",
 ]

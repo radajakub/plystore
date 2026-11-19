@@ -1,27 +1,30 @@
 #!/usr/bin/env bash
-# Whether two plystore databases hold the same data: row counts and a checksum over every document, log record and game row, in key order.
-#   scripts/compare.sh <postgres container> <database> <other database>
-# Used after a restore (make backup-check); prints both summaries and exits 1 when they differ.
+# Whether one schema holds the same data in two databases: per table, the row count and a checksum over its rows in a fixed order.
+#   scripts/compare.sh <postgres container> <schema> <database> <other database>
+# Used after a restore (make backup-check); prints the tables that differ and exits 1 when any does.
 set -euo pipefail
 
-if [ $# -ne 3 ]; then
-  echo "usage: $0 <postgres container> <database> <other database>" >&2
+if [ $# -ne 4 ]; then
+  echo "usage: $0 <postgres container> <schema> <database> <other database>" >&2
   exit 2
 fi
 container=$1
+schema=$2
 user=${PGUSER:-plystore}
-query="SELECT
-  (SELECT count(*) || ' documents ' || coalesce(md5(string_agg(key || ':' || md5(coalesce(data::text, '') || '|' || coalesce(text, '')), ',' ORDER BY key)), '-') FROM documents),
-  (SELECT count(*) || ' log records ' || coalesce(md5(string_agg(key || ':' || md5(record::text), ',' ORDER BY id)), '-') FROM logs),
-  (SELECT count(*) || ' history rows ' || coalesce(md5(string_agg(key || ':' || md5(coalesce(data::text, '') || '|' || coalesce(text, '')), ',' ORDER BY key, replaced)), '-') FROM history),
-  (SELECT count(*) || ' game rows ' || coalesce(md5(string_agg(key || ':' || folder || ':' || coalesce(result::text, ''), ',' ORDER BY key)), '-') FROM games)"
 
-first=$(docker exec "$container" psql -U "$user" -d "$2" -tA -F ' | ' -c "$query")
-second=$(docker exec "$container" psql -U "$user" -d "$3" -tA -F ' | ' -c "$query")
-echo "$2: $first"
-echo "$3: $second"
+summary() {
+  local tables
+  tables=$(docker exec "$container" psql -U "$user" -d "$1" -tAc "SELECT tablename FROM pg_tables WHERE schemaname = '$schema' ORDER BY tablename")
+  for table in $tables; do
+    docker exec "$container" psql -U "$user" -d "$1" -tAc "SELECT '$table ' || count(*) || ' ' || coalesce(md5(string_agg(t::text, ',' ORDER BY t::text)), '-') FROM \"$schema\".\"$table\" t"
+  done
+}
+
+first=$(summary "$3")
+second=$(summary "$4")
 if [ "$first" != "$second" ]; then
+  diff <(echo "$first") <(echo "$second") >&2 || true
   echo "the databases differ" >&2
   exit 1
 fi
-echo "same"
+echo "$schema: $(echo "$first" | wc -l | tr -d ' ') tables, the same in $3 and $4"

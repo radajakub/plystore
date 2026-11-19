@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Restore one dump (scripts/backup.sh) into a new database of a running Postgres container:
+# Restore one schema dump (scripts/backup.sh) into a new database of a running Postgres container:
 #   scripts/restore.sh <postgres container> <dump file> <new database>
-# Refuses a database that exists: a restore never writes over data. To put a restored database in place of a live one, stop the service,
-# rename the databases in psql (ALTER DATABASE ... RENAME TO ...), and start it again.
+# Refuses a database that exists: a restore never writes over data. To put a restored schema in place of a live one, stop the writers,
+# rename the schemas in psql (ALTER SCHEMA ... RENAME TO ...) or move the restored database in place, and start them again.
 set -euo pipefail
 
 if [ $# -ne 3 ]; then

@@ -8,11 +8,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
-- `Store`: one interface for named documents and append-only logs; `MemoryStore`, `FileStore` (plydata's layout and
-  bytes), `RoutedStore` (prefixes to backends, `also_read` for data written before a switch); `open_store` from a
-  `PLYSTORE_CONFIG` file, files when there is none.
-- `copy` and `scan`, with the commands `plystore-copy` and `plystore-scan`, for importing a data folder.
-- The service (`plystore-serve`, extra `server`): the Store calls over HTTP on PostgreSQL, one database per repository,
-  history of replaced documents; `ServiceStore`, its client; a Dockerfile and a local compose file.
-- `get_many` on every backend; `copy` moves documents in batches of 200 and falls back to one by one for a batch that fails.
-- The `games` table: typed columns of game records, kept by a trigger.
+- `Store`: one interface for records and append-only logs; `MemoryStore`, `FileStore` (plydata's layout and bytes),
+  `RoutedStore` (prefixes to backends, `also_read` for data written before a switch); `open_store` from a
+  `PLYSTORE_CONFIG` file, files when there is none, other backends through the `plystore.backends` entry points.
+- Formats (`formats/`): the records of plybench, plyagents and plybench_analysis described as typed tables; `mapping`
+  splits a record into rows and rebuilds it, anything that does not fit a column kept in `extra`.
+- `PostgresStore` (extra `postgres`): records in typed tables, one schema per repository, history for codebooks and
+  experiment files, shared texts, one transaction per write; migrations generated from the formats (Alembic);
+  `plystore-admin` (migrate, revision, roles, delete); a local compose file.
+- `plystore-check`: the round trip of every record of a data folder, without a database.
+- `copy` and `scan`, with the commands `plystore-copy` and `plystore-scan`, for importing a data folder; `copy` moves
+  records in batches of 200, reads them back, and falls back to one by one for a batch that fails.
+- Backup scripts: one dump per schema, restore into a new database, compare every table.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 from pathlib import Path
 
 from plystore.check import check
@@ -50,13 +51,25 @@ def copy_main() -> None:
         raise SystemExit(1)
 
 
+# how often plystore-check says how far it is, in keys
+PROGRESS_EVERY = 5000
+
+
 def check_main() -> None:
     # read only: the round trip of every record of a data folder through its format, without a database
     parser = argparse.ArgumentParser(description="Check that every record of a data folder rebuilds to itself from its typed rows (no database needed).")
     parser.add_argument("root", type=Path, help="the data folder, e.g. plydata/plybench")
     parser.add_argument("--prefix", default="", help="only keys under this prefix")
     args = parser.parse_args()
-    report = check(FileStore(args.root), args.prefix)
+    started = time.monotonic()
+
+    def progress(done: int, total: int) -> None:
+        # the first key (listing them all can take a while), then every PROGRESS_EVERY keys and the last
+        if done == 1 or done % PROGRESS_EVERY == 0 or done == total:
+            print(f"checking {args.root}: key {done}/{total} ({time.monotonic() - started:.0f} s)", flush=True)
+
+    print(f"listing the keys under {args.root}{f'/{args.prefix}' if args.prefix else ''}", flush=True)
+    report = check(FileStore(args.root), args.prefix, progress)
     print(f"{sum(report.records.values())} records")
     for name, count in report.records.most_common():
         whole = f", {report.whole[name]} kept whole (not the format's shape)" if report.whole[name] else ""

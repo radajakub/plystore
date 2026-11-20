@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from plystore import mapping
@@ -26,9 +27,13 @@ class CheckReport:
         return not self.differ and not self.refused
 
 
-def check(store: Store, prefix: str = "") -> CheckReport:
+def check(store: Store, prefix: str = "", progress: Callable[[int, int], None] | None = None) -> CheckReport:
+    # progress: called with (the key it is at, counted from 1, keys in all) before each key, so a caller can show how far a long check is
     report = CheckReport()
-    for key in store.keys(prefix):
+    keys = store.keys(prefix)
+    for done, key in enumerate(keys, 1):
+        if progress is not None:
+            progress(done, len(keys))
         log = kind(key) == LOG
         records = store.read_log(key) if log else [store.get(key)]
         try:

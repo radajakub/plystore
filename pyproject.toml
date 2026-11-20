@@ -32,6 +32,10 @@ plystore-admin = "plystore.postgres.admin:main"
 [project.entry-points."plystore.backends"]
 postgres = "plystore.postgres.store:from_config"
 
+# plybench (and plyagents, plybench_analysis through it) keeps its results in this store when PLYBENCH_STORE=plystore
+[project.entry-points."plybench.stores"]
+plystore = "plystore.config:open_store"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

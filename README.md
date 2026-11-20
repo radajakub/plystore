@@ -13,6 +13,11 @@ holds what is configuration only.
 The client (`plystore`) has no dependencies. The PostgreSQL backend comes with `plystore[postgres]` (SQLAlchemy,
 psycopg, Alembic) and is loaded through the `plystore.backends` entry point only when a configuration names it.
 
+plybench does not depend on plystore: it keeps its results through its own small store protocol, as files by default.
+With `PLYBENCH_STORE=plystore` it opens this package's configured store instead (`open_store`, through the
+`plybench.stores` entry point); plyagents and plybench_analysis write through plybench's store, so the same variable
+covers them.
+
 ## Keys
 
 A key names a record like a relative path, e.g. `results/benchmarks/ttt_10/a_b/game_1.json`. Its suffix says what it

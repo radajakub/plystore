@@ -102,7 +102,25 @@ def test_what_a_database_cannot_hold_is_refused_everywhere(store: Store) -> None
         store.append("results/log.jsonl", {"x": float("nan")})
     with pytest.raises(ValueError):
         store.put("results/x/notes.md", {"not": "text"})
+    # NUL and lone surrogates, in values, keys, lists, logs and text documents
+    for value in [{"x": "\ud800"}, {"k\x00": 1}, {"x": ["a", {"y": "\udfff"}]}]:
+        with pytest.raises(ValueError, match="NUL"):
+            store.put("results/x/game_1.json", value)
+    with pytest.raises(ValueError, match="NUL"):
+        store.append("results/log.jsonl", {"x": "a\x00b"})
+    with pytest.raises(ValueError, match="NUL"):
+        store.put("results/x/notes.md", "a\ud83d")
     assert store.keys() == []
+
+
+def test_text_that_only_looks_like_nul_or_a_surrogate_is_kept(store: Store) -> None:
+    # an escape written out as text, a character outside the BMP and an accent are not NUL or lone surrogates
+    value = {"x": "a literal \\u0000 and \\ud800", "emoji": "\U0001f600", "accent": "é"}
+    store.put("results/x/game_1.json", value)
+    store.append("results/log.jsonl", value)
+    store.put("results/x/notes.md", "\\u0000 \U0001f600")
+    assert store.get("results/x/game_1.json") == value and store.read_log("results/log.jsonl") == [value]
+    assert store.get("results/x/notes.md") == "\\u0000 \U0001f600"
 
 
 @pytest.mark.parametrize("key", ["", "/abs.json", "a//b.json", "a/../b.json", "a/./b.json", "a\\b.json", ".hidden/x.json", "a/x.json.tmp", "a/x.json.lock"])

@@ -105,9 +105,11 @@ def test_a_record_of_another_shape_is_not_split() -> None:
 def test_the_tables_of_the_formats() -> None:
     tables = mapping.tables(FORMATS)
     assert tables["game_steps"].parent == "games" and tables["step_calls"].parent == "game_steps"
-    assert tables["memory_entries"].part and tables["memory_entries"].by == ("entry_key",)
+    assert tables["update_writes"].part and tables["game_players"].by == ("player_hash",)
     assert tables["games"].columns["end_result"] == INT and tables["games"].columns["has_ending"] == mapping.BOOL
-    assert tables["learner_states"].columns["shape_actor"] == "shape"
+    assert tables["learner_updates"].columns["shape_actor"] == "shape"
+    # a learner state is kept whole, one jsonb value per block
+    assert {name: tables["learner_states"].columns[name] for name in ("actor", "critic", "reference")} == dict.fromkeys(("actor", "critic", "reference"), JSON)
     assert tables["codebooks"].history and tables["annotations"].log
 
 

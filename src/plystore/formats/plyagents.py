@@ -5,7 +5,7 @@ from plystore.mapping import BOOL, FLOAT, INT, INTS, JSON, SHARED, STR, STRS, Ch
 
 # What plyagents writes inside plybench's places (textrl/player.py, step.py): the data of a textrl step, the learner state of a checkpoint or
 # after a commit (state.json), and the update of one game, batch or epoch (update.json). Which shape a block has (a memory of texts, a table of
-# values) depends on the configured actor and critic: a Choice per block.
+# values) depends on the configured actor and critic: a Choice per block of an update.
 
 # the `data` of a textrl step, beside plybench's own data fields (formats/plybench.py)
 STEP_DATA = (
@@ -23,37 +23,9 @@ STEP_DATA = (
     *cols(JSON, "read", "select", "estimates", "guidance_parts", "counts"),
 )
 
-MEMORY_ENTRY = (Column("text", SHARED), Column("visits", INT), Column("actions", JSON), Column("writes", INT), Column("samples", INT))
-VALUE = (Column("value", FLOAT), Column("count", INT))
-REFERENCE_COUNT = (Flatten("results", "", cols(INT, "win", "loss", "draw")), Column("sum", FLOAT), Column("sum_sq", FLOAT))
-
-
-def _memory(block: str) -> Child:
-    return Child(block, "memory_entries", MEMORY_ENTRY, by=("entry_key",), part=block)
-
-
-LEARNER_STATE = Format(
-    "learner_states",
-    r"results/training/.+/(checkpoint|learner/[^/]+/state)/state\.json",
-    (
-        Choice("actor", (_memory("actor"), Child("actor", "table_entries", VALUE, by=("entry_key", "action"), part="actor"))),
-        Choice(
-            "critic",
-            (
-                _memory("critic"),
-                Flatten(
-                    "critic",
-                    "critic_",
-                    (
-                        Child("values", "value_entries", VALUE, by=("entry_key",), part="critic"),
-                        Child("action_values", "table_entries", VALUE, by=("entry_key", "action"), part="critic"),
-                    ),
-                ),
-            ),
-        ),
-        Child("reference", "reference_counts", REFERENCE_COUNT, by=("entry_key", "move")),
-    ),
-)
+# a learner state is read and written whole (a commit's replay check, a restore, a trace), never field by field, and is written after every game:
+# one jsonb value per block, not rows (rows made a training run on Postgres 13x slower than on files, 2026-11-20)
+LEARNER_STATE = Format("learner_states", r"results/training/.+/(checkpoint|learner/[^/]+/state)/state\.json", cols(JSON, "actor", "critic", "reference"))
 
 VERDICT = (*cols(STR, "grade", "reason", "lesson", "critic_note", "error"), Column("estimate", FLOAT))
 WRITE = (

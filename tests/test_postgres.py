@@ -60,7 +60,7 @@ def test_a_replaced_record_drops_its_old_rows_unless_its_format_keeps_history(po
 def test_delete_removes_every_row_under_the_prefix(postgres: PostgresStore) -> None:
     run = {key: value for key, value in DOCUMENTS.items() if key.startswith(RUN)}
     postgres.put_many(run)
-    assert count(postgres, "SELECT count(*) FROM memory_entries") > 0
+    assert count(postgres, "SELECT count(*) FROM learner_states") > 0
     assert postgres.delete(RUN) == len(run)
     for table in [
         "records",
@@ -70,8 +70,7 @@ def test_delete_removes_every_row_under_the_prefix(postgres: PostgresStore) -> N
         "matchups",
         "matchup_sessions_packages",
         "learner_states",
-        "memory_entries",
-        "reference_counts",
+        "learner_updates",
         "update_writes",
     ]:
         assert count(postgres, f"SELECT count(*) FROM {table}") == 0, table

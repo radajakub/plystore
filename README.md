@@ -64,9 +64,11 @@ plydata for plybench, plyagents and plybench_analysis (the `plystore` contracts 
 
 ## PostgreSQL
 
-One database, one schema per repository that ran the work (`plybench`, `plyagents`, `plybench_analysis`); every schema
-has every table, so one repository's data is dumped or dropped as a whole. Training runs from the plyagents checkout,
-so its plybench records are in the `plyagents` schema.
+One database, one schema per data folder (`plybench` for plydata/plybench, `plyagents` for plydata/plyagents); every
+schema has every table, so one folder's data is dumped or dropped as a whole. A repository writes into the schema of
+the folder it writes to: training runs from the plyagents checkout keep their plybench records in `plyagents`, and
+plybench_analysis, which analyses plydata/plybench, keeps its records in `plybench` beside the games it reads. On
+kamino: [DEPLOY.md](DEPLOY.md).
 
 - `records`: one row per key (its format and time); every root row references it `ON DELETE CASCADE`, and every child
   row its parent, so `delete(prefix)` removes everything under the prefix.
@@ -79,7 +81,7 @@ so its plybench records are in the `plyagents` schema.
 A writer refuses a schema whose migration is not the one its formats were made for. Administration (`plystore-admin`,
 URL from `--url` or `PLYSTORE_DATABASE_URL`):
 
-- `migrate --schema plybench plyagents plybench_analysis`: create and upgrade the schemas;
+- `migrate --schema plybench plyagents`: create and upgrade the schemas;
 - `revision --message "..."`: generate the next migration after a format changed (in a scratch schema, rolled back);
 - `roles --schema ...`: group roles `plystore_<schema>_write` (rows of that schema only) and `plystore_read`; login
   roles are granted them by hand;

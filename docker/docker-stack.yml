@@ -1,0 +1,45 @@
+# The results database on kamino (Docker Swarm), its own stack: docker stack deploy -c docker-stack.yml plystore (from /srv/stacks/plystore).
+# Postgres only, not the website's; no published port: only services on the plystore network reach it, by the name plystore_postgres.
+# Requires on the swarm:
+#   network: plystore (docker network create --driver overlay --attachable plystore; plyservice's stack joins it)
+#   secrets: plystore_db_password (the password of the plystore user), plystore_database_url (postgresql://plystore:<password>@plystore_postgres:5432/plystore,
+#            for plyservice's stack)
+#   the data folder at PLYSTORE_DATA (created first, empty; Postgres makes it its own)
+# Schemas, one per repository: plystore-admin migrate --schema plybench plyagents plybench_analysis. Backups: scripts/backup.sh with the container of
+# this service (docker ps -qf name=plystore_postgres), nightly from the host's crontab.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: plystore
+      POSTGRES_DB: plystore
+      POSTGRES_PASSWORD_FILE: /run/secrets/plystore_db_password
+    volumes:
+      - type: bind
+        source: ${PLYSTORE_DATA:-/mnt/HC_Volume_103899209/plystore}
+        target: /var/lib/postgresql/data
+    secrets:
+      - plystore_db_password
+    networks:
+      - plystore
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "plystore"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      replicas: 1
+      # one Postgres on one data folder: stop the old before the new starts
+      update_config:
+        order: stop-first
+      restart_policy:
+        condition: any
+
+networks:
+  plystore:
+    external: true
+
+secrets:
+  plystore_db_password:
+    external: true

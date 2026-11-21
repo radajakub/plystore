@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- `scripts/compare.sh` (the backup check): a checksum per table without one table-sized string, which passed Postgres'
+  1 GB limit on a large table; a query that fails now fails the comparison.
+
 ## [0.1.0] - 2026-11-21
 
 ### Added

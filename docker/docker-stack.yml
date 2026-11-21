@@ -1,12 +1,12 @@
-# The results database on kamino (Docker Swarm), its own stack: docker stack deploy -c docker-stack.yml plystore (from /srv/stacks/plystore).
+# The results database on kamino (Docker Swarm), its own stack plystore, deployed from this checkout by scripts/server.sh setup.
 # Postgres only, not the website's; no published port: only services on the plystore network reach it, by the name plystore_postgres.
 # Requires on the swarm:
 #   network: plystore (docker network create --driver overlay --attachable plystore; plyservice's stack joins it)
 #   secrets: plystore_db_password (the password of the plystore user), plystore_database_url (postgresql://plystore:<password>@plystore_postgres:5432/plystore,
 #            for plyservice's stack)
 #   the data folder at PLYSTORE_DATA (created first, empty; Postgres makes it its own)
-# Schemas, one per repository: plystore-admin migrate --schema plybench plyagents plybench_analysis. Backups: scripts/backup.sh with the container of
-# this service (docker ps -qf name=plystore_postgres), nightly from the host's crontab.
+# Set up, migrated, imported and backed up by scripts/server.sh (DEPLOY.md): one schema per data folder (plybench, plyagents), a nightly dump
+# from the host's crontab.
 
 services:
   postgres:

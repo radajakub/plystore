@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-21
+
 ### Added
 
 - `Store`: one interface for records and append-only logs; `MemoryStore`, `FileStore` (plydata's layout and bytes),

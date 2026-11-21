@@ -1,7 +1,7 @@
 [project]
 name = "plystore"
 # set by `make release VERSION=X.Y.Z`; the first release is 0.1.0
-version = "0.0.0"
+version = "0.1.0"
 description = "One storage interface for the outputs of ply runs: records and logs in memory, in files, or in typed PostgreSQL tables."
 readme = "README.md"
 requires-python = ">=3.12"

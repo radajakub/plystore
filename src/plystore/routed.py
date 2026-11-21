@@ -85,6 +85,9 @@ class RoutedStore:
     def append(self, key: str, record: Any) -> None:
         self.route(key).store.append(key, record)
 
+    def append_many(self, key: str, records: Sequence[Any]) -> None:
+        self.route(key).store.append_many(key, records)
+
     def read_log(self, key: str) -> list[Any]:
         # the records written before the switch first, then the new ones
         route = self.route(key)

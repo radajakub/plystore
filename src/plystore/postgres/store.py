@@ -138,19 +138,28 @@ class PostgresStore:
         return params
 
     def append(self, key: str, record: Any) -> None:
-        encode_record(check(key), record)
-        fmt = find(key)
-        if fmt is not None and fmt.log:
-            row = mapping.split(fmt, record) or mapping.Row(fmt.name, extra={WHOLE: record})
-        else:
-            row = mapping.Row(UNMAPPED_LINES.name, {"data": record} if record is not None else {})
-        records = self.tables["records"]
+        self.append_many(key, [record])
+
+    def append_many(self, key: str, records: Sequence[Any]) -> None:
+        # one transaction for all of them: the log's rows, in order, by one INSERT per table and level
+        fmt = find(check(key))
+        rows = []
+        for record in records:
+            encode_record(key, record)
+            if fmt is not None and fmt.log:
+                rows.append(mapping.split(fmt, record) or mapping.Row(fmt.name, extra={WHOLE: record}))
+            else:
+                rows.append(mapping.Row(UNMAPPED_LINES.name, {"data": record} if record is not None else {}))
+        if not rows:
+            return
+        table = rows[0].table
+        index = self.tables["records"]
         with self.engine.begin() as conn:
-            conn.execute(pg_insert(records).values(key=key, format=row.table).on_conflict_do_nothing())
-            there = conn.execute(select(records.c.format).where(records.c.key == key)).scalar_one()
-            if there != row.table:
+            conn.execute(pg_insert(index).values(key=key, format=table).on_conflict_do_nothing())
+            there = conn.execute(select(index.c.format).where(index.c.key == key)).scalar_one()
+            if there != table:
                 raise ValueError(f"{key} is not a log here (kept as {there})")
-            self._insert(conn, [(key, row)])
+            self._insert(conn, [(key, row) for row in rows])
 
     def delete(self, prefix: str) -> int:
         check_prefix_to_delete(check_prefix(prefix))

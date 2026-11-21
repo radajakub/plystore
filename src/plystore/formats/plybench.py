@@ -43,6 +43,9 @@ STEP = (
 # what a learner records at the end of a game (player/learnable.py; `outcome` from plyagents): paths of the states it started from and learned
 GAME_PLAYER = (Flatten("state", "state_", cols(STR, "checkpoint", "before")), Column("learned", STR), Column("outcome", FLOAT))
 
+# i_player and o_player are the seats of this game (i_player moves first), not the matchup's i_config and o_config: with colours swapped,
+# i_player is the opponent. end_result is the result for i_player (common/enums.py GameResults: 0 win, 1 loss, 2 draw, 3 i_player failed a move,
+# 4 o_player failed one), so a player's wins are end_result = 0 where it is i_player and end_result = 1 where it is o_player
 GAME = Format(
     "games",
     r"results/.+/game_\d+\.json",

@@ -43,11 +43,14 @@ def rows(store: PostgresStore, sql: str, **params: Any) -> list[tuple[Any, ...]]
 
 def win_rates(files: FileStore, prefix: str) -> dict[str, tuple[int, float, float]]:
     # what a reader computes from files today: every game record read and parsed
+    # a player's games in either seat; it won where the result for its seat is a win (the ending's result is the first seat's: 0 win, 1 loss)
     games: dict[str, list[tuple[int, int]]] = {}
     for key in files.keys(prefix):
         if key.rsplit("/", 1)[-1].startswith("game_"):
             game = files.get(key) or {}
-            games.setdefault(game.get("i_player", "?"), []).append((int(game.get("ending", {}).get("result") == 0), len(game.get("steps", []))))
+            result = game.get("ending", {}).get("result")
+            for seat, won in (("i_player", 0), ("o_player", 1)):
+                games.setdefault(game.get(seat, "?"), []).append((int(result == won), len(game.get("steps", []))))
     return {player: (len(found), sum(w for w, _ in found) / len(found), sum(m for _, m in found) / len(found)) for player, found in sorted(games.items())}
 
 
@@ -113,8 +116,11 @@ def main() -> None:
     section("4. a question over every game: win rate and mean moves per player")
     from_files = timed("files: read and parse every game in Python", lambda: win_rates(files, args.prefix))
     query = """
-        SELECT i_player, count(*), avg((end_result = 0)::int)::float, avg((SELECT count(*) FROM game_steps s WHERE s.parent_id = g.id))::float
-        FROM games g WHERE folder LIKE :like GROUP BY i_player ORDER BY i_player"""
+        WITH seats AS (
+            SELECT i_player AS player, (end_result = 0)::int AS won, id FROM games WHERE folder LIKE :like
+            UNION ALL SELECT o_player, (end_result = 1)::int, id FROM games WHERE folder LIKE :like)
+        SELECT player, count(*), avg(won)::float, avg((SELECT count(*) FROM game_steps s WHERE s.parent_id = seats.id))::float
+        FROM seats GROUP BY player ORDER BY player"""
     from_sql = timed("postgres: one SQL query over the typed columns", lambda: rows(postgres, query, like=args.prefix + "/%"))
     for player, count, rate, moves in from_sql:
         print(f"    {count:>5} games  win rate {rate:.3f}  moves {moves:.2f}  {player[:70]}")

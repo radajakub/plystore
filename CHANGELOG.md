@@ -18,5 +18,6 @@ All notable changes to this project are documented in this file. The format is b
   `plystore-admin` (migrate, revision, roles, delete); a local compose file.
 - `plystore-check`: the round trip of every record of a data folder, without a database.
 - `copy` and `scan`, with the commands `plystore-copy` and `plystore-scan`, for importing a data folder; `copy` moves
-  records in batches of 200, reads them back, and falls back to one by one for a batch that fails.
+  records in batches of 200, reads them back, and falls back to one by one for a batch that fails; a log in batches of
+  2,000 records (`append_many`, one transaction each).
 - Backup scripts: one dump per schema, restore into a new database, compare every table.

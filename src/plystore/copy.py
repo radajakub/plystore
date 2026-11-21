@@ -12,6 +12,7 @@ from plystore.store import Store, encode, encode_record
 # write and one read-back per batch); a batch that fails as a whole is done again key by key, so one bad document fails alone.
 
 BATCH = 200
+LOG_BATCH = 2000  # log records in one append_many (one transaction), not one per record
 
 
 @dataclass
@@ -31,8 +32,9 @@ def _copy_log(source: Store, target: Store, key: str, report: CopyReport) -> Non
     if records[: len(there)] != there:
         report.conflicts.append(key)
         return
-    for record in records[len(there) :]:
-        target.append(key, record)
+    new = records[len(there) :]
+    for start in range(0, len(new), LOG_BATCH):
+        target.append_many(key, new[start : start + LOG_BATCH])
     (report.copied if len(records) > len(there) else report.same).append(key)
 
 

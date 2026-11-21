@@ -50,9 +50,12 @@ class MemoryStore:
             return sorted(key for key in [*self._documents, *self._logs] if under(key, prefix))
 
     def append(self, key: str, record: Any) -> None:
-        line = encode_record(check(key), record)
+        self.append_many(key, [record])
+
+    def append_many(self, key: str, records: Sequence[Any]) -> None:
+        lines = [encode_record(check(key), record) for record in records]
         with self._lock:
-            self._logs.setdefault(key, []).append(line)
+            self._logs.setdefault(key, []).extend(lines)
 
     def read_log(self, key: str) -> list[Any]:
         check_log(check(key))

@@ -120,12 +120,17 @@ class FileStore:
         return sorted(found)
 
     def append(self, key: str, record: Any) -> None:
-        line = encode_record(check(key), record)
+        self.append_many(key, [record])
+
+    def append_many(self, key: str, records: Sequence[Any]) -> None:
+        lines = [encode_record(check(key), record) for record in records]
+        if not lines:
+            return
         path = self.root / key
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as handle:
             fcntl.flock(handle, fcntl.LOCK_EX)
-            handle.write(line + "\n")
+            handle.write("".join(line + "\n" for line in lines))
             handle.flush()
             fcntl.flock(handle, fcntl.LOCK_UN)
 

@@ -34,6 +34,7 @@ be empty, start with `.`, or end in `.tmp` or `.lock` (names the backends keep f
 | `get_many(keys)`                       | the records of those keys that exist, in one call                     |
 | `exists(key)`, `keys(prefix)`          | whether it is there; every key under a prefix, by whole parts, sorted |
 | `append(key, record)`, `read_log(key)` | one record at the end of a log; the records in order                  |
+| `append_many(key, records)`            | several records at the end of a log, all or none, in one call         |
 | `delete(prefix)`                       | every record under a non-empty prefix (an admin action)               |
 
 What PostgreSQL cannot hold (NaN, infinities, the NUL character, lone surrogates) is refused by every backend, so a run

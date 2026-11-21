@@ -78,6 +78,15 @@ def test_a_log_keeps_its_records_in_order(store: Store) -> None:
     assert store.read_log("results/blocks.jsonl") == [{"n": 0, "text": "ä"}, {"n": 1, "text": "ä"}, {"n": 2, "text": "ä"}]
 
 
+def test_several_records_are_appended_in_order_all_or_none(store: Store) -> None:
+    store.append("results/blocks.jsonl", {"n": 0})
+    store.append_many("results/blocks.jsonl", [{"n": 1}, ["whole"], {"n": 2}])
+    store.append_many("results/blocks.jsonl", [])
+    with pytest.raises(ValueError):
+        store.append_many("results/blocks.jsonl", [{"n": 3}, {"x": float("nan")}])
+    assert store.read_log("results/blocks.jsonl") == [{"n": 0}, {"n": 1}, ["whole"], {"n": 2}]
+
+
 def test_appends_from_threads_never_interleave(store: Store) -> None:
     def write(worker: int) -> None:
         for n in range(50):

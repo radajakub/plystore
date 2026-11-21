@@ -37,6 +37,10 @@ class Store(Protocol):
         # one JSON record at the end of a .jsonl log; appends from processes at the same time never interleave
         ...
 
+    def append_many(self, key: str, records: Sequence[Any]) -> None:
+        # several records at the end of one log, all or none, in one call (an import of a log); never interleaved with other appends
+        ...
+
     def read_log(self, key: str) -> list[Any]:
         # the records of a log in order; [] when there is none
         ...

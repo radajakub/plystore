@@ -266,7 +266,8 @@ slim_plydata() {
   say "a copy pass that must copy nothing (every file already in Postgres); log: $PLYSTORE_BACKUPS/import.log"
   everything_there || fail "the pass copied something or found conflicts (above): see $PLYSTORE_BACKUPS/import.log; run slim-plydata again once it copies nothing"
   ask "no job running? remove $count files from plydata (Postgres holds them; git's history keeps them), commit and push?" || exit 0
-  git -C "$data" rm -r -q --ignore-unmatch -- "${specs[@]}"
+  # -f: the status is clean (checked above), and without it git looks up each file in HEAD, which rereads a large folder's tree once per file (hours)
+  git -C "$data" rm -r -f -q --ignore-unmatch -- "${specs[@]}"
   for folder in "${folders[@]}"; do
     for link in experiments results; do
       mkdir -p "$data/$folder/$link"

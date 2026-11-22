@@ -61,14 +61,33 @@ The Postgres image is `postgres:16-alpine`: `docker service update --image postg
 running; the database is down for a few seconds) takes the newest 16.x. A new major (17) needs a dump and a restore into
 a new data folder, not an image change.
 
+## Files off and a slim plydata
+
+Once jobs have run on Postgres for a while, the copies in plydata can go. No job running, on the server in the ply folder:
+
+```bash
+plystore/scripts/server.sh files-off      # a copy pass that must copy nothing, then the configurations without also_read
+plystore/scripts/server.sh slim-plydata   # the same pass again, then what the import copied removed from plydata: one commit, pushed
+```
+
+- `files-off` keeps the configurations it replaces beside them (`.plyservice/stores.with-files-<time>`). Compare an
+  experiment's check before and after (`check_experiment`: games planned and left): the same counts mean Postgres has
+  every game.
+- `slim-plydata` removes exactly what the import copied (`IMPORTED` in the script), keeps each data link's folder with a
+  `.keep` (plyservice's check needs the links to resolve), leaves untracked files alone, and commits only that, as
+  plyservice, pushed from its container. Logs, job records and reports, review pages, provider batch state,
+  `experiments/exploration` and `plyagents/archive` stay. Other clones get it with `git pull` (their files go too: analyse
+  a downloaded dump instead).
+- git's history still holds everything, so a clone stays its old size; rewriting the history (`git filter-repo`) would
+  shrink it, but changes every commit hash that job records name. Not done here.
+
 ## Rollback
 
 `plystore/scripts/server.sh rollback` moves the store configurations aside: every command writes files again. What was
 written to Postgres since the switch stays there; `plystore-copy` copies only from files, so copying it back to files
-needs `copy(postgres, files)` from Python (not yet a command).
+needs `copy(postgres, files)` from Python (not yet a command). After `slim-plydata` the files are gone from plydata too
+(git's history keeps them): a rollback then starts from Postgres only.
 
 ## Later (you)
 
-- Remove the imported folders from plydata with git (git keeps the old files), then drop `also_read` from the
-  configurations.
 - Prune old dumps.

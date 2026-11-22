@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/server.sh files-off` (a copy pass that must copy nothing, then the store configurations without `also_read`)
+  and `slim-plydata` (the same pass, then what the import copied removed from plydata in one commit, pushed by
+  plyservice).
+
 ### Fixed
 
 - `scripts/compare.sh` (the backup check): a checksum per table without one table-sized string, which passed Postgres'

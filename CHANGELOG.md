@@ -11,8 +11,13 @@ All notable changes to this project are documented in this file. The format is b
 - `scripts/server.sh files-off` (a copy pass that must copy nothing, then the store configurations without `also_read`)
   and `slim-plydata` (the same pass, then what the import copied removed from plydata in one commit, pushed by
   plyservice).
+- `scripts/rewrite-plydata.sh`: plydata's history without what `slim-plydata` removed (`git filter-repo` through
+  `uvx`), checked to end in the same tree, force-pushed after asking.
 
 ### Fixed
+
+- `scripts/server.sh slim-plydata`: `git rm -f` (the status is checked before); without it git looked up each file in
+  HEAD, which took hours on a folder of 176,700 files.
 
 - `scripts/compare.sh` (the backup check): a checksum per table without one table-sized string, which passed Postgres'
   1 GB limit on a large table; a query that fails now fails the comparison.

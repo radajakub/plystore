@@ -78,15 +78,32 @@ plystore/scripts/server.sh slim-plydata   # the same pass again, then what the i
   plyservice, pushed from its container. Logs, job records and reports, review pages, provider batch state,
   `experiments/exploration` and `plyagents/archive` stay. Other clones get it with `git pull` (their files go too: analyse
   a downloaded dump instead).
-- git's history still holds everything, so a clone stays its old size; rewriting the history (`git filter-repo`) would
-  shrink it, but changes every commit hash that job records name. Not done here.
+- git's history still holds everything after `slim-plydata`. To shrink it (667 MB to 7 MB in November 2026), with no
+  job running and nothing else pushing to plydata, on the laptop in the ply folder:
+
+  ```bash
+  plystore/scripts/rewrite-plydata.sh ~/plydata-rewrite.git   # a mirror clone rewritten by git filter-repo, checked, force-pushed after asking
+  ```
+
+  It drops every imported path from every commit (also from the root layout before 2026-10-21), checks that master ends
+  in the same tree and that no commit touches a dropped path, and pushes only if GitHub's master has not moved. No copy
+  of the old history is kept. Commit hashes change: those named in job records no longer resolve. Then replace every
+  other clone, on the server in the ply folder:
+
+  ```bash
+  docker exec $(docker ps -qf name=plyservice_plyservice) git -C /ply/plydata fetch -q origin && git -C plydata reset -q --hard origin/master && git -C plydata reflog expire --expire=now --all && git -C plydata gc -q --prune=now
+  ```
+
+  (`reset --hard` keeps untracked and ignored files; the tree is the same, so no file changes.) On the laptop the same
+  without `docker exec` (a fresh clone would lose the ignored cache). Never push from a clone that still has the old
+  history: it brings it back.
 
 ## Rollback
 
 `plystore/scripts/server.sh rollback` moves the store configurations aside: every command writes files again. What was
 written to Postgres since the switch stays there; `plystore-copy` copies only from files, so copying it back to files
 needs `copy(postgres, files)` from Python (not yet a command). After `slim-plydata` the files are gone from plydata too
-(git's history keeps them): a rollback then starts from Postgres only.
+(after `rewrite-plydata.sh` also from its history): a rollback then starts from Postgres only.
 
 ## Later (you)
 

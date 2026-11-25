@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
+import pytest
+
 from plystore import FileStore, MemoryStore, copy, scan
+from plystore.cli import export_main
 
 
 def _plydata(root: Path) -> FileStore:
@@ -46,6 +50,20 @@ def test_a_scan_finds_what_a_database_would_refuse(tmp_path: Path) -> None:
     assert report.folders["results/x"] == 4
     failed = copy(store, MemoryStore()).failed
     assert set(failed) == {"results/x/game_2.json", "results/x/game_3.json"}
+
+
+def test_an_export_writes_the_prefixes_as_files_and_can_run_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    _plydata(tmp_path / "source")
+    config = tmp_path / "files.toml"
+    config.write_text('[[route]]\nprefix = ""\nstore = "files"\n')
+    argv = ["plystore-export", str(config), str(tmp_path / "out"), "--prefix", "results/llm_blocks.jsonl", "results/x", "--source-root", str(tmp_path / "source")]
+    monkeypatch.setattr(sys, "argv", argv)
+    export_main()
+    for key in ("results/llm_blocks.jsonl", "results/x/game_1.json", "results/x/metadata.json"):
+        assert (tmp_path / "out" / key).read_bytes() == (tmp_path / "source" / key).read_bytes()
+    assert not (tmp_path / "out/analysis").exists()
+    export_main()
+    assert "0 copied, 2 already there" in capsys.readouterr().out
 
 
 def test_a_batch_with_one_bad_document_copies_the_rest(tmp_path: Path) -> None:

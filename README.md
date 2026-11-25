@@ -115,6 +115,8 @@ store = "files"
   the records no store would take.
 - `plystore-copy <data folder> <config> --target-root <root>`: copy every record into the configured store and read it
   back; never overwrites; a key with other content there is reported as a conflict; safe to run again.
+- `plystore-export <config> <out folder> --prefix ...`: the other direction, read only on the store: the records under
+  the prefixes into a data folder laid out as plydata (e.g. from a restored dump, to analyse locally); never overwrites.
 
 ## Releases
 

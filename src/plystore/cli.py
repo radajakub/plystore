@@ -51,6 +51,28 @@ def copy_main() -> None:
         raise SystemExit(1)
 
 
+def export_main() -> None:
+    # read only on the store: copy's other direction, the records of the configured store (a server's database, a restored dump) into a data folder laid out as plydata
+    parser = argparse.ArgumentParser(description="Copy the records under some prefixes of the store a configuration names into a data folder; never overwrites.")
+    parser.add_argument("config", type=Path, help="the plystore configuration of the source, e.g. a postgres schema, with PLYSTORE_DATABASE_URL set")
+    parser.add_argument("out", type=Path, help="the data folder to write, e.g. exports/plybench")
+    parser.add_argument("--prefix", nargs="+", required=True, help="the keys to export, by whole parts, e.g. analysis/ttt/reasoning/annotations.jsonl results/benchmarks/ttt")
+    parser.add_argument("--source-root", type=Path, default=Path("."), help="the root of the source's files backend, if its configuration routes any prefix to files")
+    args = parser.parse_args()
+    source, target = open_store(args.source_root, args.config), FileStore(args.out)
+    failed = False
+    for prefix in args.prefix:
+        report = copy(source, target, prefix)
+        print(f"{prefix}: {report.summary()}")
+        for key in report.conflicts[:50]:
+            print(f"  conflict: {key}")
+        for key, problem in list(report.failed.items())[:50]:
+            print(f"  failed: {key}: {problem}")
+        failed = failed or bool(report.conflicts or report.failed)
+    if failed:
+        raise SystemExit(1)
+
+
 # how often plystore-check says how far it is, in keys
 PROGRESS_EVERY = 5000
 

@@ -26,6 +26,7 @@ postgres = ["sqlalchemy>=2.0.40", "psycopg[binary]>=3.2", "alembic>=1.15"]
 [project.scripts]
 plystore-scan = "plystore.cli:scan_main"
 plystore-copy = "plystore.cli:copy_main"
+plystore-export = "plystore.cli:export_main"
 plystore-check = "plystore.cli:check_main"
 plystore-admin = "plystore.postgres.admin:main"
 
